@@ -1,6 +1,7 @@
 import React from 'react';
 import { Globe, Leaf, Building2, Factory, CheckCircle2, TrendingUp } from 'lucide-react';
 import { calculatePlatformMetrics } from '../../services/storage';
+import { Reveal } from '../common/Reveal';
 
 export const SdgSection: React.FC = () => {
   const metrics = calculatePlatformMetrics();
@@ -10,7 +11,7 @@ export const SdgSection: React.FC = () => {
       num: 12,
       target: 'Target 12.4 & 12.5',
       title: 'Responsible Consumption & Production',
-      color: 'border-amber-500/60 text-amber-400 bg-amber-950/20',
+      color: 'border-amber-300 text-amber-800 bg-amber-50',
       icon: Leaf,
       metricVal: `${metrics.totalKg.toLocaleString()} kg`,
       metricLabel: 'Hazardous E-Waste Diverted',
@@ -20,7 +21,7 @@ export const SdgSection: React.FC = () => {
       num: 13,
       target: 'Target 13.3',
       title: 'Climate Action',
-      color: 'border-emerald-500/60 text-emerald-400 bg-emerald-950/20',
+      color: 'border-[#16A36A]/35 text-[#123D32] bg-[#B9F5D0]/50',
       icon: Globe,
       metricVal: `${metrics.totalCo2Kg.toLocaleString()} kg CO2e`,
       metricLabel: 'Emissions Avoided vs Virgin Mining',
@@ -30,7 +31,7 @@ export const SdgSection: React.FC = () => {
       num: 11,
       target: 'Target 11.6',
       title: 'Sustainable Cities & Communities',
-      color: 'border-cyan-500/60 text-cyan-400 bg-cyan-950/20',
+      color: 'border-cyan-300 text-cyan-800 bg-cyan-50',
       icon: Building2,
       metricVal: '28 Nodes',
       metricLabel: 'Campus & Urban Collection Kiosks',
@@ -40,7 +41,7 @@ export const SdgSection: React.FC = () => {
       num: 9,
       target: 'Target 9.4',
       title: 'Industry, Innovation & Infrastructure',
-      color: 'border-blue-500/60 text-blue-400 bg-blue-950/20',
+      color: 'border-blue-300 text-blue-800 bg-blue-50',
       icon: Factory,
       metricVal: '98.1%',
       metricLabel: 'Certified Material Smelting Yield',
@@ -49,81 +50,83 @@ export const SdgSection: React.FC = () => {
   ];
 
   return (
-    <section className="py-20 bg-neutral-900/40 border-b border-neutral-800/80">
+    <section className="py-20 bg-[#F7FAF8] border-b border-[#E1EBE5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-12 border-b border-neutral-800/60">
+        <Reveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 border-b border-[#E1EBE5]">
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+            <div className="text-xs font-mono uppercase tracking-wider text-[#16A36A] font-semibold flex items-center gap-2">
               <Globe className="w-3.5 h-3.5" />
               <span>United Nations 2030 Agenda Alignment</span>
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-white mt-2">
+            <h2 className="text-3xl font-bold tracking-tight text-[#182B26] mt-2">
               Measurable SDG Impact Indicators
             </h2>
-            <p className="text-sm text-neutral-400 mt-2 max-w-2xl leading-relaxed">
+            <p className="text-sm text-[#718078] mt-2 max-w-2xl leading-relaxed">
               E-Cycle AI was designed from first principles to directly advance 4 core UN Sustainable Development Goals with real, trackable campus indicators rather than hollow marketing claims.
             </p>
           </div>
 
-          <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-300">
-            <span className="text-emerald-400 font-bold">Hackathon Rubric:</span> SDG Impact Measurability
+          <div className="p-3 bg-white border border-[#DCE6E0] rounded-xl text-xs font-mono text-[#182B26] shadow-xs">
+            <span className="text-[#16A36A] font-bold">Hackathon Rubric:</span> SDG Impact Measurability
           </div>
-        </div>
+        </Reveal>
 
         {/* 4 SDG Cards Grid */}
         <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sdgGoals.map((g) => {
-            const Icon = g.icon;
+          {sdgGoals.map((g, idx) => {
             return (
-              <div
-                key={g.num}
-                className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 sm:p-7 flex flex-col justify-between hover:border-neutral-700 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-4 border-b border-neutral-800/80">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-11 h-11 rounded-xl border flex items-center justify-center font-mono font-bold text-lg ${g.color}`}>
-                        {g.num}
-                      </div>
-                      <div>
-                        <div className="text-xs font-mono text-neutral-400">{g.target}</div>
-                        <h3 className="text-base font-bold text-white mt-0.5">{g.title}</h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-neutral-300 mt-4 leading-relaxed">
-                    {g.description}
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-neutral-800/60 flex items-center justify-between">
+              <Reveal key={g.num} delayMs={idx * 70}>
+                <div
+                  className="h-full eco-card eco-card-interactive p-6 sm:p-7 flex flex-col justify-between"
+                >
                   <div>
-                    <div className="text-[11px] font-mono text-neutral-400">{g.metricLabel}</div>
-                    <div className="text-xl font-bold text-white font-mono tabular-nums mt-0.5">
-                      {g.metricVal}
+                    <div className="flex items-center justify-between pb-4 border-b border-[#E1EBE5]">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center font-mono font-bold text-lg tabular-nums ${g.color}`}>
+                          {g.num}
+                        </div>
+                        <div>
+                          <div className="text-xs font-mono text-[#718078]">{g.target}</div>
+                          <h3 className="text-base font-bold text-[#182B26] mt-0.5">{g.title}</h3>
+                        </div>
+                      </div>
                     </div>
+
+                    <p className="text-xs text-[#53635B] mt-4 leading-relaxed">
+                      {g.description}
+                    </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Active Telemetry</span>
+                  <div className="mt-6 pt-4 border-t border-[#E1EBE5] flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-mono text-[#718078]">{g.metricLabel}</div>
+                      <div className="text-xl font-bold text-[#123D32] font-mono tabular-nums mt-0.5">
+                        {g.metricVal}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-[#16A36A] font-semibold font-mono">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Active Telemetry</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Reveal>
             );
           })}
         </div>
 
         {/* Verification transparency banner */}
-        <div className="mt-8 p-4 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-neutral-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono">
-          <div className="flex items-center gap-2">
-            <span className="text-emerald-400">Methodology Standard:</span>
-            <span>EPA Waste Reduction Model (WARM) v15 & Basel Convention Tech Guidelines.</span>
+        <Reveal delayMs={150}>
+          <div className="mt-8 p-4 bg-white border border-[#DCE6E0] rounded-xl text-xs text-[#718078] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[#16A36A] font-semibold">Methodology Standard:</span>
+              <span className="text-[#182B26]">EPA Waste Reduction Model (WARM) v15 & Basel Convention Tech Guidelines.</span>
+            </div>
+            <span className="text-[#123D32] font-semibold text-[11px]">Audit Report Verifiable</span>
           </div>
-          <span className="text-neutral-500 text-[11px]">Audit Report Verifiable</span>
-        </div>
+        </Reveal>
 
       </div>
     </section>

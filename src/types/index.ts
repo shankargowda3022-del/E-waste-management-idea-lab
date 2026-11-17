@@ -1,4 +1,4 @@
-export type UserRole = 'citizen' | 'recycler' | 'repair' | 'admin';
+export type UserRole = 'citizen' | 'campus_admin' | 'recycler' | 'super_admin' | 'repair' | 'admin';
 
 export interface User {
   id: string;
@@ -12,6 +12,72 @@ export interface User {
   devicesRecycled: number;
   phone: string;
   address: string;
+  isAuthenticatedCitizen?: boolean;
+}
+
+export interface EcoPointTransaction {
+  id: string;
+  userId: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  reason: string;
+  referenceId?: string;
+  createdAt: string;
+}
+
+export interface ImpactMetrics {
+  devicesCollected: number;
+  kgProcessed: number;
+  ghgAvoidedKg: number;
+  activePartners: number;
+  goldRecoveredGrams: number;
+  copperRecoveredKg: number;
+  updatedAt: string;
+}
+
+export interface AIDiagnosisResult {
+  deviceType: string;
+  brand: string;
+  model: string;
+  condition: DeviceCondition;
+  estimatedRepairabilityScore: number; // 0 to 10
+  preciousMetalEstimate: {
+    goldGrams: number;
+    copperGrams: number;
+    aluminumGrams: number;
+    lithiumGrams?: number;
+    estimatedValueUsd: number;
+  };
+  hazardFlags: {
+    hasHazard: boolean;
+    swollenBattery: boolean;
+    crackedGlass: boolean;
+    liquidDamage: boolean;
+    exposedWiring: boolean;
+    description?: string;
+  };
+  dataWipingInstructions: {
+    supported: boolean;
+    difficulty: 'easy' | 'moderate' | 'advanced';
+    steps: string[];
+    factoryResetGuide: string;
+    warningNote: string;
+  };
+  recommendedAction: 'repair' | 'refurbish' | 'recycle' | 'hazardous_handling';
+  reasoningEngine?: string;
+  analyzedAt: string;
+  imageUrl?: string;
+}
+
+export interface CitizenAccount {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  address: string;
+  createdAt: string;
+  ecoPoints?: number;
 }
 
 export type DeviceCondition = 'working' | 'minor_damage' | 'non_working' | 'hazardous';
@@ -35,6 +101,19 @@ export interface TrackingUpdate {
   timestamp: string;
   location?: string;
   updatedBy?: string;
+}
+
+export interface UserNotification {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  requestId?: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  type: 'submitted' | 'assigned' | 'scheduled' | 'collected' | 'processing' | 'completed' | 'reward' | 'partner';
+  read: boolean;
+  actionUrl?: string;
 }
 
 export interface PickupRequest {
@@ -67,9 +146,13 @@ export interface PickupRequest {
   assignedPartnerId?: string;
   assignedPartnerName?: string;
   createdAt: string;
+  submittedAt?: string;
+  deviceImage?: string;
+  deviceImageName?: string;
   dataPrivacyAcknowledged: boolean;
   batterySafeHandlingAcknowledged: boolean;
   qrCodeToken: string;
+  aiDiagnosis?: AIDiagnosisResult;
 }
 
 export interface CollectionCentre {
@@ -141,15 +224,28 @@ export interface CommunityChallenge {
 
 export interface PartnerVerificationApplication {
   id: string;
-  organizationName: string;
-  registrationNumber: string;
-  contactPerson: string;
+  shopName: string; // Shop Name
+  organizationName: string; // Synonym
+  name: string; // Contact Person Name
+  contactPerson: string; // Synonym
   email: string;
   phone: string;
+  address: string; // Full Shop Address
   city: string;
+  type: 'Recycler' | 'Repairer'; // Explicit type as required
   category: 'Recycler' | 'Refurbisher' | 'Collection Agency';
   r2Certified: boolean;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string;
-  facilityAreaSqFt: number;
+  facilityAreaSqFt?: number;
+  username?: string;
+  assignedLoginId?: string;
+  temporaryPassword?: string;
+  generatedPassword?: string;
+  approvedAt?: string;
+  emailDeliveryStatus?: 'sent' | 'simulated' | 'failed' | 'not_sent';
+  emailDeliveryMessage?: string;
+  emailDeliveryError?: string;
+  emailSentAt?: string;
 }
+

@@ -1,0 +1,197 @@
+[
+  {
+    "id": "ECY-2026-9180",
+    "userId": "usr_citizen_01",
+    "userName": "Deekshitha",
+    "userEmail": "deekshithagowda947@gmail.com",
+    "userPhone": "",
+    "deviceCategory": "Laptops",
+    "brand": "Dell",
+    "model": "Inspiron 15",
+    "quantity": 1,
+    "condition": "working",
+    "pickupType": "home_pickup",
+    "address": "Redwood Residence Hall",
+    "preferredDate": "2026-11-12",
+    "timeSlot": "10:00 AM - 01:00 PM",
+    "disposalPreference": "recycle",
+    "notes": "Please call upon arrival",
+    "status": "submitted",
+    "trackingUpdates": [
+      {
+        "stage": "submitted",
+        "title": "Request Registered & Queued",
+        "description": "Pickup request filed for 1x Dell Inspiron 15. Handover initialized.",
+        "timestamp": "2026-11-10 01:02 PM",
+        "location": "Citizen Address"
+      }
+    ],
+    "ecoPointsAwarded": 100,
+    "estimatedWeightKg": 1.5,
+    "recoveredGoldGrams": 0,
+    "recoveredCopperKg": 0,
+    "dataPrivacyAcknowledged": true,
+    "batterySafeHandlingAcknowledged": true,
+    "qrCodeToken": "ECY-QR-9180-7AJUV",
+    "createdAt": "2026-11-10 01:02 PM"
+  },
+  {
+    "id": "ECY-2026-7220",
+    "userId": "usr_cit_1794144999188_676",
+    "userName": "Shashank",
+    "userEmail": "shank4@gmail.com",
+    "userPhone": "8050845675",
+    "deviceCategory": "Smartphones & Tablets",
+    "brand": "Oppo",
+    "model": "A54",
+    "quantity": 1,
+    "condition": "minor_damage",
+    "pickupType": "home_pickup",
+    "address": "No 8 venkathadri nilaya pipe line first cross gollarahatti Bangalore",
+    "disposalPreference": "repair",
+    "preferredDate": "2026-11-10",
+    "timeSlot": "10:00 AM - 01:00 PM",
+    "notes": "Ring bell",
+    "status": "submitted",
+    "ecoPointsAwarded": 160,
+    "estimatedWeightKg": 0.2,
+    "qrCodeToken": "ECY-QR-7220-4QQGW",
+    "trackingUpdates": [
+      {
+        "stage": "submitted",
+        "title": "Repair Request Registered & Queued",
+        "description": "Hardware diagnostic intake filed for 1x Oppo A54. Lab intake scheduled.",
+        "timestamp": "2026-11-08 19:06",
+        "location": "Citizen Address"
+      }
+    ],
+    "dataPrivacyAcknowledged": true,
+    "batterySafeHandlingAcknowledged": true,
+    "createdAt": "2026-11-08 19:06"
+  },
+  {
+    "id": "ECY-2026-6880",
+    "userId": "usr_cit_1794144468551_925",
+    "userName": "Shankar",
+    "userEmail": "shankar223022@gmail.com",
+    "userPhone": "+1 (555) 234-8901",
+    "deviceCategory": "Smartphones & Tablets",
+    "brand": "Apple",
+    "model": "iPhone 11 (64GB)",
+    "quantity": 1,
+    "condition": "working",
+    "pickupType": "home_pickup",
+    "address": "Campus North Residences, Hall 3",
+    "disposalPreference": "recycle",
+    "preferredDate": "2026-11-10",
+    "timeSlot": "10:00 AM - 01:00 PM",
+    "status": "submitted",
+    "ecoPointsAwarded": 120,
+    "estimatedWeightKg": 0.2,
+    "qrCodeToken": "ECY-QR-6880-U17OS",
+    "trackingUpdates": [
+      {
+        "stage": "submitted",
+        "title": "Recycle Request Registered & Queued",
+        "description": "E-waste collection filed for 1x Apple iPhone 11 (64GB). Certified R2 recycling intake scheduled.",
+        "timestamp": "2026-11-08 18:58",
+        "location": "Citizen Address"
+      }
+    ],
+    "dataPrivacyAcknowledged": true,
+    "batterySafeHandlingAcknowledged": true,
+    "createdAt": "2026-11-08 18:58"
+  },
+  {
+    "id": "ECY-2026-8941",
+    "userId": "usr_citizen_01",
+    "userName": "Marcus Vance",
+    "userEmail": "marcus.vance@campus.edu",
+    "userPhone": "+1 (555) 349-2041",
+    "deviceCategory": "Laptops",
+    "brand": "Apple",
+    "model": "MacBook Pro (Retina 15\")",
+    "quantity": 1,
+    "condition": "minor_damage",
+    "pickupType": "home_pickup",
+    "address": "Redwood Residence Hall, Room 412",
+    "disposalPreference": "recycle",
+    "preferredDate": "2026-11-10",
+    "timeSlot": "10:00 AM - 12:00 PM",
+    "status": "processing",
+    "ecoPointsAwarded": 180,
+    "estimatedWeightKg": 2.04,
+    "verifiedWeightKg": 2.01,
+    "assignedPartnerName": "GreenTech Certified Recyclers Ltd",
+    "qrCodeToken": "ECY-QR-8941-XYZ",
+    "trackingUpdates": [
+      {
+        "stage": "processing",
+        "title": "De-manufacturing & Smelting",
+        "description": "Hardware dismantled at GreenTech R2 Smelter. High-recovery gold pin striping initiated.",
+        "timestamp": "2026-11-09 09:30",
+        "location": "GreenTech E-Waste Refinery (Facility 4)"
+      },
+      {
+        "stage": "collected",
+        "title": "Hardware Collected from Doorstep",
+        "description": "Scanned QR code and logged custody handover at Redwood Residence Hall.",
+        "timestamp": "2026-11-08 14:15",
+        "location": "Redwood Residence Hall"
+      },
+      {
+        "stage": "submitted",
+        "title": "Request Registered & Queued",
+        "description": "Pickup request filed for 1x Apple MacBook Pro.",
+        "timestamp": "2026-11-07 10:20",
+        "location": "Citizen Address"
+      }
+    ],
+    "dataPrivacyAcknowledged": true,
+    "batterySafeHandlingAcknowledged": true,
+    "createdAt": "2026-11-07 10:20"
+  },
+  {
+    "id": "ECY-2026-5120",
+    "userId": "usr_citizen_02",
+    "userName": "Priya Sharma",
+    "userEmail": "priya.sharma@tech.univ.edu",
+    "userPhone": "+1 (555) 891-2309",
+    "deviceCategory": "Laptops",
+    "brand": "Dell",
+    "model": "XPS 13 9360",
+    "quantity": 1,
+    "condition": "minor_damage",
+    "pickupType": "centre_dropoff",
+    "centreId": "centre_01",
+    "centreName": "Central Campus E-Waste Depot",
+    "address": "Science Quad Building B, Room 102",
+    "disposalPreference": "repair",
+    "preferredDate": "2026-11-11",
+    "timeSlot": "02:00 PM - 04:00 PM",
+    "status": "verified",
+    "ecoPointsAwarded": 140,
+    "estimatedWeightKg": 1.25,
+    "assignedPartnerName": "MicroFix Hardware Diagnostics Lab",
+    "qrCodeToken": "ECY-QR-5120-ABC",
+    "trackingUpdates": [
+      {
+        "stage": "verified",
+        "title": "Device Specs & Eligibility Verified",
+        "description": "Hardware intake verified. Motherboard diagnostic and thermal paste renewal scheduled.",
+        "timestamp": "2026-11-08 11:00",
+        "location": "MicroFix Hardware Diagnostics Lab"
+      },
+      {
+        "stage": "submitted",
+        "title": "Request Registered & Queued",
+        "description": "Repair request submitted by citizen.",
+        "timestamp": "2026-11-08 09:15",
+        "location": "Central Campus E-Waste Depot"
+      }
+    ],
+    "dataPrivacyAcknowledged": true,
+    "batterySafeHandlingAcknowledged": true,
+    "createdAt": "2026-11-08 09:15"
+  }
+]

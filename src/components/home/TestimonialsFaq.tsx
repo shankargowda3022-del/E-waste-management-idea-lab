@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, MessageSquare, HelpCircle } from 'lucide-react';
+import { Reveal } from '../common/Reveal';
 
 export const TestimonialsFaq: React.FC = () => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -49,88 +50,93 @@ export const TestimonialsFaq: React.FC = () => {
   ];
 
   return (
-    <section className="py-20 bg-neutral-950 border-b border-neutral-800/80">
+    <section className="py-20 bg-white border-b border-[#E1EBE5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
         {/* Testimonials Block */}
         <div>
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-8 border-b border-neutral-800/60">
+          <Reveal className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-8 border-b border-[#E1EBE5]">
             <div>
-              <div className="text-xs font-mono uppercase tracking-wider text-emerald-400">
+              <div className="text-xs font-mono uppercase tracking-wider text-[#16A36A] font-semibold">
                 Community Feedback
               </div>
-              <h2 className="text-3xl font-bold tracking-tight text-white mt-1">
+              <h2 className="text-3xl font-bold tracking-tight text-[#182B26] mt-1">
                 Trusted Across Campus & Industry
               </h2>
             </div>
-            <div className="text-xs font-mono text-neutral-400">
+            <div className="text-xs font-mono text-[#718078]">
               *Demo community reviews illustrating campus pilot impact
             </div>
-          </div>
+          </Reveal>
 
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((t, i) => (
-              <div
-                key={i}
-                className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex flex-col justify-between"
-              >
-                <p className="text-xs text-neutral-300 leading-relaxed italic">
-                  "{t.quote}"
-                </p>
-                <div className="mt-6 pt-4 border-t border-neutral-800/60">
-                  <div className="text-xs font-bold text-white">{t.name}</div>
-                  <div className="text-[11px] text-emerald-400">{t.role}</div>
-                  <div className="text-[11px] text-neutral-400 font-mono">{t.org}</div>
+              <Reveal key={i} delayMs={i * 75}>
+                <div
+                  className="h-full bg-[#F7FAF8] border border-[#DCE6E0] rounded-2xl p-6 flex flex-col justify-between hover:border-[#16A36A]/40 transition-colors"
+                >
+                  <p className="text-xs text-[#53635B] leading-relaxed italic">
+                    "{t.quote}"
+                  </p>
+                  <div className="mt-6 pt-4 border-t border-[#E1EBE5]">
+                    <div className="text-xs font-bold text-[#182B26]">{t.name}</div>
+                    <div className="text-[11px] text-[#16A36A] font-semibold">{t.role}</div>
+                    <div className="text-[11px] text-[#718078] font-mono">{t.org}</div>
+                  </div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
 
         {/* FAQ Block */}
         <div className="mt-20">
-          <div className="max-w-2xl">
-            <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+          <Reveal className="max-w-2xl">
+            <div className="text-xs font-mono uppercase tracking-wider text-[#16A36A] font-semibold flex items-center gap-2">
               <HelpCircle className="w-3.5 h-3.5" />
               <span>Questions & Knowledge Base</span>
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-white mt-2">
+            <h2 className="text-3xl font-bold tracking-tight text-[#182B26] mt-2">
               Frequently Asked Questions
             </h2>
-            <p className="text-sm text-neutral-400 mt-2">
+            <p className="text-sm text-[#718078] mt-2">
               Everything you need to know about safe disposal, data privacy, and certified circular recovery.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="mt-8 space-y-3 max-w-3xl">
+          <Reveal delayMs={80} className="mt-8 space-y-3 max-w-3xl">
             {faqs.map((f, i) => {
               const isOpen = openFaqIndex === i;
               return (
                 <div
                   key={i}
-                  className="bg-neutral-900/70 border border-neutral-800 rounded-xl overflow-hidden transition-colors"
+                  className={`rounded-xl border overflow-hidden transition-all ${
+                    isOpen
+                      ? 'bg-[#F7FAF8] border-[#16A36A]/50 shadow-xs'
+                      : 'bg-white border-[#DCE6E0] hover:border-[#16A36A]/40'
+                  }`}
                 >
                   <button
                     onClick={() => setOpenFaqIndex(isOpen ? null : i)}
-                    className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 text-xs sm:text-sm font-semibold text-white hover:text-emerald-300 transition-colors"
+                    className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 text-xs sm:text-sm font-semibold text-[#182B26] hover:text-[#123D32] transition-colors cursor-pointer"
                   >
                     <span>{f.q}</span>
                     {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <ChevronUp className="w-4 h-4 text-[#16A36A] shrink-0" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
+                      <ChevronDown className="w-4 h-4 text-[#718078] shrink-0" />
                     )}
                   </button>
 
                   {isOpen && (
-                    <div className="px-4 pb-5 sm:px-5 sm:pb-5 text-xs text-neutral-300 leading-relaxed border-t border-neutral-800/60 pt-3">
+                    <div className="px-4 pb-5 sm:px-5 sm:pb-5 text-xs text-[#53635B] leading-relaxed border-t border-[#E1EBE5] pt-3">
                       {f.a}
                     </div>
                   )}
                 </div>
               );
             })}
-          </div>
+          </Reveal>
         </div>
 
       </div>

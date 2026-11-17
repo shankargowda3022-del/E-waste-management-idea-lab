@@ -1,7 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, PickupRequest, DeviceCondition, DisposalPreference, PickupType } from '../../types';
-import { savePickupRequest, getCentres } from '../../services/storage';
-import { X, Upload, Calendar, Clock, MapPin, ShieldCheck, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import {
+  savePickupRequest,
+  savePickupRequestAsync,
+  getCentres,
+  registerCitizenAccount,
+  loginCitizenAccount,
+  isCitizenAuthenticated,
+  formatRequestDateTime
+} from '../../services/storage';
+import {
+  X,
+  Upload,
+  Calendar,
+  Clock,
+  MapPin,
+  ShieldCheck,
+  AlertCircle,
+  ArrowRight,
+  User as UserIcon,
+  Mail,
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Recycle,
+  Building2,
+  Wrench,
+  Camera,
+  Trash2,
+  Image as ImageIcon
+} from 'lucide-react';
 
 interface Props {
   currentUser: User;
@@ -10,7 +40,50 @@ interface Props {
   onSuccess: (newRequest: PickupRequest) => void;
   initialCategory?: string;
   initialCentreId?: string;
+  initialDisposalPreference?: DisposalPreference;
 }
+
+const compressImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = () => {
+      const result = reader.result as string;
+      const img = new Image();
+      img.onerror = () => resolve(result);
+      img.onload = () => {
+        const maxDim = 960;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(result);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const compressed = canvas.toDataURL('image/jpeg', 0.78);
+          resolve(compressed);
+        } catch {
+          resolve(result);
+        }
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 export const PickupRequestModal: React.FC<Props> = ({
   currentUser,
@@ -18,30 +91,67 @@ export const PickupRequestModal: React.FC<Props> = ({
   onClose,
   onSuccess,
   initialCategory,
-  initialCentreId
+  initialCentreId,
+  initialDisposalPreference
 }) => {
   const centres = getCentres();
+  const alreadyAuthenticated = isCitizenAuthenticated(currentUser);
 
   const [step, setStep] = useState<number>(1);
+
+  // Device specs
   const [deviceCategory, setDeviceCategory] = useState<string>(initialCategory || 'Laptops');
   const [brand, setBrand] = useState<string>('');
   const [model, setModel] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [condition, setCondition] = useState<DeviceCondition>('minor_damage');
+  const [disposalPreference, setDisposalPreference] = useState<DisposalPreference>(initialDisposalPreference || 'recycle');
+  const [deviceImage, setDeviceImage] = useState<string>('');
+  const [deviceImageName, setDeviceImageName] = useState<string>('');
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (initialDisposalPreference) {
+      setDisposalPreference(initialDisposalPreference);
+    }
+  }, [initialDisposalPreference, isOpen]);
+
+  // Citizen Identity & Details
+  const [userName, setUserName] = useState<string>(currentUser.isAuthenticatedCitizen ? currentUser.name : '');
+  const [userEmail, setUserEmail] = useState<string>(currentUser.isAuthenticatedCitizen ? currentUser.email : '');
+  const [userPhone, setUserPhone] = useState<string>(currentUser.phone !== '+1 (555) 234-8901' ? currentUser.phone : '');
+  const [address, setAddress] = useState<string>(currentUser.address !== 'Redwood Residence Hall, North Campus' ? currentUser.address : '');
+  const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [citizenMode, setCitizenMode] = useState<'register' | 'login'>('register');
+
+  // Logistics & Schedule
   const [pickupType, setPickupType] = useState<PickupType>(initialCentreId ? 'centre_dropoff' : 'home_pickup');
-  const [address, setAddress] = useState<string>(currentUser.address || '');
   const [centreId, setCentreId] = useState<string>(initialCentreId || centres[0]?.id || '');
-  const [preferredDate, setPreferredDate] = useState<string>('2026-11-06');
+  const [preferredDate, setPreferredDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split('T')[0];
+  });
   const [timeSlot, setTimeSlot] = useState<string>('10:00 AM - 01:00 PM');
-  const [disposalPreference, setDisposalPreference] = useState<DisposalPreference>('repair');
   const [notes, setNotes] = useState<string>('');
   const [serialNumber, setSerialNumber] = useState<string>('');
+
+  // Acknowledgements
   const [privacyCheck, setPrivacyCheck] = useState<boolean>(false);
   const [batteryCheck, setBatteryCheck] = useState<boolean>(false);
-  const [simulatedPhotoName, setSimulatedPhotoName] = useState<string>('');
 
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (currentUser.isAuthenticatedCitizen) {
+      setUserName(currentUser.name);
+      setUserEmail(currentUser.email);
+      if (currentUser.phone) setUserPhone(currentUser.phone);
+      if (currentUser.address) setAddress(currentUser.address);
+    }
+  }, [currentUser]);
 
   if (!isOpen) return null;
 
@@ -56,10 +166,25 @@ export const PickupRequestModal: React.FC<Props> = ({
     'Small Appliances'
   ];
 
-  const handleSimulatePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSimulatedPhotoName(e.target.files[0].name);
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsProcessingPhoto(true);
+    setErrorMsg('');
+    try {
+      const compressedDataUrl = await compressImageFile(file);
+      setDeviceImage(compressedDataUrl);
+      setDeviceImageName(file.name);
+    } catch {
+      setErrorMsg('Unable to process selected image. Please try a JPG or PNG file.');
+    } finally {
+      setIsProcessingPhoto(false);
     }
+  };
+
+  const handleClearPhoto = () => {
+    setDeviceImage('');
+    setDeviceImageName('');
   };
 
   const handleQuickPresetDevice = (cat: string, b: string, m: string, cond: DeviceCondition, pref: DisposalPreference) => {
@@ -70,18 +195,58 @@ export const PickupRequestModal: React.FC<Props> = ({
     setDisposalPreference(pref);
   };
 
+  const handleValidateStep1 = () => {
+    if (!brand.trim() || !model.trim()) {
+      setErrorMsg('Please specify both the brand and model of your electronic device.');
+      return false;
+    }
+    setErrorMsg('');
+    return true;
+  };
+
+  const handleValidateStep2 = () => {
+    setErrorMsg('');
+    if (!userName.trim()) {
+      setErrorMsg('Please fill in your full name.');
+      return false;
+    }
+    if (!userEmail.trim() || !userEmail.includes('@')) {
+      setErrorMsg('Please provide a valid email address.');
+      return false;
+    }
+    if (!userPhone.trim()) {
+      setErrorMsg('Please provide your contact phone number.');
+      return false;
+    }
+    if (pickupType === 'home_pickup' && !address.trim()) {
+      setErrorMsg('Please enter your doorstep pickup address.');
+      return false;
+    }
+
+    if (!alreadyAuthenticated) {
+      if (!password.trim()) {
+        setErrorMsg('Please enter your password to log in or create your citizen account.');
+        return false;
+      }
+      if (password.trim().length < 4) {
+        setErrorMsg('Password should be at least 4 characters long.');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!brand.trim() || !model.trim()) {
-      setErrorMsg('Please specify both the brand and model of the electronic device.');
+    if (!handleValidateStep1()) {
       setStep(1);
       return;
     }
 
-    if (pickupType === 'home_pickup' && !address.trim()) {
-      setErrorMsg('Please enter a valid doorstep collection address.');
+    if (!handleValidateStep2()) {
       setStep(2);
       return;
     }
@@ -100,102 +265,165 @@ export const PickupRequestModal: React.FC<Props> = ({
 
     setIsSubmitting(true);
 
+    let activeCitizenUser: User = currentUser;
+
+    if (!alreadyAuthenticated) {
+      if (citizenMode === 'register') {
+        const regRes = registerCitizenAccount({
+          name: userName.trim(),
+          email: userEmail.trim(),
+          phone: userPhone.trim(),
+          address: address.trim(),
+          password: password.trim()
+        });
+
+        if (!regRes.success || !regRes.user) {
+          setIsSubmitting(false);
+          setErrorMsg(regRes.error || 'Failed to register citizen account. If you already have an account, switch to "Log in with existing password".');
+          setStep(2);
+          return;
+        }
+        activeCitizenUser = regRes.user;
+      } else {
+        const loginRes = loginCitizenAccount(userEmail.trim() || userName.trim(), password.trim());
+        if (!loginRes.success || !loginRes.user) {
+          setIsSubmitting(false);
+          setErrorMsg(loginRes.error || 'Invalid credentials. Please verify your password or choose "Create new citizen account".');
+          setStep(2);
+          return;
+        }
+        activeCitizenUser = loginRes.user;
+      }
+    }
+
     const selectedCentre = centres.find(c => c.id === centreId);
 
-    // Calculate baseline eco points
     let points = 100;
     let estimatedWeight = 1.5;
     if (deviceCategory === 'Laptops') { points = 160; estimatedWeight = 2.1; }
     if (deviceCategory === 'Smartphones & Tablets') { points = 120; estimatedWeight = 0.2; }
     if (deviceCategory === 'Desktops & Servers') { points = 220; estimatedWeight = 8.5; }
     if (deviceCategory === 'Lithium-Ion Batteries') { points = 80; estimatedWeight = 0.8; }
-    if (disposalPreference === 'repair') points += 40; // bonus for repair-first
+    if (disposalPreference === 'repair') points += 40;
 
-    setTimeout(() => {
-      const newReq = savePickupRequest({
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userEmail: currentUser.email,
-        userPhone: currentUser.phone || '+1 (555) 234-8901',
-        deviceCategory,
-        brand: brand.trim(),
-        model: model.trim(),
-        quantity,
-        condition,
-        pickupType,
-        address: pickupType === 'home_pickup' ? address.trim() : (selectedCentre?.address || 'Campus Drop-off Depot'),
-        centreId: pickupType === 'centre_dropoff' ? centreId : undefined,
-        centreName: pickupType === 'centre_dropoff' ? (selectedCentre?.name || 'Campus Depot') : undefined,
-        preferredDate,
-        timeSlot,
-        disposalPreference,
-        notes: notes.trim(),
-        serialNumber: serialNumber.trim(),
-        ecoPointsAwarded: points * quantity,
-        estimatedWeightKg: estimatedWeight * quantity,
-        dataPrivacyAcknowledged: true,
-        batterySafeHandlingAcknowledged: true
+    const requestPayload = {
+      userId: activeCitizenUser.id,
+      userName: userName.trim() || activeCitizenUser.name,
+      userEmail: userEmail.trim() || activeCitizenUser.email,
+      userPhone: userPhone.trim() || activeCitizenUser.phone,
+      deviceCategory,
+      brand: brand.trim(),
+      model: model.trim(),
+      quantity,
+      condition,
+      pickupType,
+      address: pickupType === 'home_pickup' ? address.trim() : (selectedCentre?.address || 'Campus Drop-off Depot'),
+      centreId: pickupType === 'centre_dropoff' ? centreId : undefined,
+      centreName: pickupType === 'centre_dropoff' ? (selectedCentre?.name || 'Campus Depot') : undefined,
+      preferredDate,
+      timeSlot,
+      disposalPreference,
+      notes: notes.trim(),
+      serialNumber: serialNumber.trim(),
+      deviceImage: deviceImage || undefined,
+      deviceImageName: deviceImageName || undefined,
+      ecoPointsAwarded: points * quantity,
+      estimatedWeightKg: estimatedWeight * quantity,
+      dataPrivacyAcknowledged: true,
+      batterySafeHandlingAcknowledged: true
+    };
+
+    savePickupRequestAsync(requestPayload)
+      .then((newReq) => {
+        setIsSubmitting(false);
+        onSuccess(newReq);
+        onClose();
+      })
+      .catch((err) => {
+        console.warn('Async backend save failed, falling back to local save:', err);
+        const fallbackReq = savePickupRequest(requestPayload);
+        setIsSubmitting(false);
+        onSuccess(fallbackReq);
+        onClose();
       });
-
-      setIsSubmitting(false);
-      onSuccess(newReq);
-      onClose();
-    }, 600);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 bg-[#123D32]/55 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-2xl my-auto bg-white border border-[#DCE6E0] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] box-border min-w-0 animate-modal-in">
         
         {/* Header */}
-        <div className="p-6 border-b border-neutral-800 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-emerald-400">
-              Responsible Circular Handover
+        <div className="p-5 sm:p-6 bg-[#F7FAF8] border-b border-[#DCE6E0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#B9F5D0]/60 border border-[#16A36A]/25 flex items-center justify-center text-[#123D32] shrink-0">
+              <Recycle className="w-5 h-5 text-[#16A36A]" />
             </div>
-            <h2 className="text-lg font-bold text-white mt-0.5">
-              Schedule E-Waste Collection
-            </h2>
+            <div>
+              <div className="text-xs font-mono font-semibold text-[#16A36A]">
+                Citizen Circular Handover
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-[#182B26] mt-0.5">
+                Request E-Waste Recycling Pickup
+              </h2>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+            aria-label="Close modal"
+            className="p-2 text-[#718078] hover:text-[#182B26] rounded-lg hover:bg-white border border-transparent hover:border-[#DCE6E0] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Multi-step progress tabs */}
-        <div className="grid grid-cols-3 border-b border-neutral-800 text-xs font-mono text-center">
+        <div className="grid grid-cols-3 border-b border-[#DCE6E0] bg-white text-xs font-medium text-center">
           <button
             type="button"
             onClick={() => setStep(1)}
-            className={`py-2.5 transition-colors ${step === 1 ? 'border-b-2 border-emerald-500 text-emerald-400 font-semibold bg-neutral-800/40' : 'text-neutral-500 hover:text-neutral-300'}`}
+            className={`py-3 transition-colors cursor-pointer whitespace-nowrap ${
+              step === 1
+                ? 'border-b-2 border-[#16A36A] text-[#123D32] font-semibold bg-[#F7FAF8]'
+                : 'text-[#718078] hover:text-[#182B26]'
+            }`}
           >
             1. Device Specs
           </button>
           <button
             type="button"
-            onClick={() => setStep(2)}
-            className={`py-2.5 transition-colors ${step === 2 ? 'border-b-2 border-emerald-500 text-emerald-400 font-semibold bg-neutral-800/40' : 'text-neutral-500 hover:text-neutral-300'}`}
+            onClick={() => {
+              if (handleValidateStep1()) setStep(2);
+            }}
+            className={`py-3 transition-colors cursor-pointer whitespace-nowrap ${
+              step === 2
+                ? 'border-b-2 border-[#16A36A] text-[#123D32] font-semibold bg-[#F7FAF8]'
+                : 'text-[#718078] hover:text-[#182B26]'
+            }`}
           >
-            2. Logistics & Date
+            2. Name, Details & Login
           </button>
           <button
             type="button"
-            onClick={() => setStep(3)}
-            className={`py-2.5 transition-colors ${step === 3 ? 'border-b-2 border-emerald-500 text-emerald-400 font-semibold bg-neutral-800/40' : 'text-neutral-500 hover:text-neutral-300'}`}
+            onClick={() => {
+              if (handleValidateStep1() && handleValidateStep2()) setStep(3);
+            }}
+            className={`py-3 transition-colors cursor-pointer whitespace-nowrap ${
+              step === 3
+                ? 'border-b-2 border-[#16A36A] text-[#123D32] font-semibold bg-[#F7FAF8]'
+                : 'text-[#718078] hover:text-[#182B26]'
+            }`}
           >
-            3. Privacy & Submit
+            3. Review & Submit
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 text-xs text-[#182B26]">
           
           {errorMsg && (
-            <div className="p-3 bg-red-950/40 border border-red-800/60 rounded-xl text-red-300 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -204,28 +432,28 @@ export const PickupRequestModal: React.FC<Props> = ({
           {step === 1 && (
             <div className="space-y-4">
               
-              {/* Quick Fill presets for hackathon demo */}
-              <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl">
-                <span className="text-[11px] font-mono text-neutral-400 block mb-2">⚡ Quick 1-Click Demo Presets:</span>
+              {/* Quick Fill presets */}
+              <div className="p-3.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl">
+                <span className="text-[11px] font-medium text-[#718078] block mb-2">Quick Device Presets:</span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => handleQuickPresetDevice('Laptops', 'Lenovo', 'ThinkPad T480 (Core i5)', 'minor_damage', 'repair')}
-                    className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-[11px] font-mono"
+                    className="px-2.5 py-1.5 bg-white hover:bg-[#B9F5D0]/30 border border-[#DCE6E0] text-[#182B26] rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
                   >
                     ThinkPad T480 (Repair First)
                   </button>
                   <button
                     type="button"
                     onClick={() => handleQuickPresetDevice('Smartphones & Tablets', 'Apple', 'iPhone 11 (64GB)', 'working', 'donation')}
-                    className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-[11px] font-mono"
+                    className="px-2.5 py-1.5 bg-white hover:bg-[#B9F5D0]/30 border border-[#DCE6E0] text-[#182B26] rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
                   >
-                    iPhone 11 (Student Donation)
+                    iPhone 11 (Refurbish)
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleQuickPresetDevice('Lithium-Ion Batteries', 'Anker / Drone', 'LiPo Pack 5000mAh', 'hazardous', 'recycle')}
-                    className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-[11px] font-mono"
+                    onClick={() => handleQuickPresetDevice('Lithium-Ion Batteries', 'Anker / Mixed OEM', 'LiPo Pack 5000mAh', 'hazardous', 'recycle')}
+                    className="px-2.5 py-1.5 bg-white hover:bg-[#B9F5D0]/30 border border-[#DCE6E0] text-[#182B26] rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
                   >
                     Swollen Li-Ion (Hazardous)
                   </button>
@@ -233,13 +461,13 @@ export const PickupRequestModal: React.FC<Props> = ({
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-semibold mb-1.5">
-                  Device Category <span className="text-red-400">*</span>
+                <label className="block text-[#182B26] font-semibold mb-1.5">
+                  Device Category <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={deviceCategory}
                   onChange={(e) => setDeviceCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white transition-colors"
                 >
                   {categories.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -247,176 +475,413 @@ export const PickupRequestModal: React.FC<Props> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Manufacturer / Brand <span className="text-red-400">*</span>
+                  <label className="block text-[#182B26] font-semibold mb-1.5">
+                    Brand <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
-                    placeholder="e.g. Dell, Apple, Samsung, Lenovo"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    placeholder="e.g. Dell, Apple, HP"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Model & Series <span className="text-red-400">*</span>
+                  <label className="block text-[#182B26] font-semibold mb-1.5">
+                    Model Name / Series <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
-                    placeholder="e.g. Latitude 5420, Galaxy S20, 24-inch Monitor"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    placeholder="e.g. XPS 13, iPad Pro"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white transition-colors"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Physical Quantity
+                  <label className="block text-[#182B26] font-semibold mb-1.5">
+                    Quantity
                   </label>
                   <input
                     type="number"
-                    min="1"
-                    max="50"
+                    min={1}
+                    max={50}
                     value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500 font-mono"
+                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white font-mono tabular-nums transition-colors"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Device Condition <span className="text-red-400">*</span>
-                  </label>
-                  <select
-                    value={condition}
-                    onChange={(e) => setCondition(e.target.value as DeviceCondition)}
-                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500 capitalize"
-                  >
-                    <option value="working">Fully Functional / Working</option>
-                    <option value="minor_damage">Minor Damage (Slow / Battery degraded / Scratched)</option>
-                    <option value="non_working">Non-Working / Broken screen / Dead motherboard</option>
-                    <option value="hazardous">Hazardous (Swollen battery / Exposed chemicals)</option>
-                  </select>
-                </div>
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-semibold mb-1.5">
-                  Disposal & Circular Preference
+                <label className="block text-[#182B26] font-semibold mb-1.5">
+                  Operational Condition <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { id: 'repair', label: 'Repair First', desc: 'Diagnose & fix' },
-                    { id: 'donation', label: 'Donation', desc: 'Campus charity' },
-                    { id: 'refurbish', label: 'Refurbish', desc: 'Resale credit' },
-                    { id: 'recycle', label: 'Certified Recycling', desc: 'R2 urban mining' }
-                  ].map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setDisposalPreference(p.id as DisposalPreference)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
-                        disposalPreference === p.id
-                          ? 'border-emerald-500 bg-emerald-950/30 text-emerald-300'
-                          : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs">{p.label}</div>
-                      <div className="text-[10px] text-neutral-500">{p.desc}</div>
-                    </button>
-                  ))}
-                </div>
+                <select
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value as DeviceCondition)}
+                  className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white transition-colors"
+                >
+                  <option value="working">Fully Functional / Working</option>
+                  <option value="minor_damage">Minor Damage (Slow / Battery degraded / Scratched)</option>
+                  <option value="non_working">Non-Working / Broken screen / Dead motherboard</option>
+                  <option value="hazardous">Hazardous (Swollen battery / Exposed chemicals)</option>
+                </select>
               </div>
 
-              {/* Photo Upload Simulation */}
               <div>
-                <label className="block text-neutral-300 font-semibold mb-1.5">
-                  Device Photo Verification (Optional)
-                </label>
-                <label className="flex flex-col items-center justify-center p-4 border border-dashed border-neutral-800 hover:border-emerald-500/60 rounded-xl bg-neutral-950 cursor-pointer transition-colors">
-                  <Upload className="w-5 h-5 text-neutral-500 mb-1" />
-                  <span className="text-neutral-400 text-xs">
-                    {simulatedPhotoName ? `Selected: ${simulatedPhotoName}` : 'Upload device photo for visual AI serial triage'}
+                <label className="block text-[#182B26] font-semibold mb-1.5 flex items-center justify-between gap-2 flex-wrap">
+                  <span>Routing Destination & Service Partner <span className="text-red-500">*</span></span>
+                  <span className="text-[11px] font-mono font-semibold text-[#16A36A]">
+                    {disposalPreference === 'recycle' ? 'Routes to: Certified Recycler' : 'Routes to: Hardware Repair Lab'}
                   </span>
-                  <span className="text-[10px] text-neutral-600 mt-0.5">JPG, PNG up to 10MB</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleSimulatePhotoUpload}
-                    className="hidden"
-                  />
                 </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDisposalPreference('recycle')}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      disposalPreference === 'recycle'
+                        ? 'border-[#16A36A] bg-[#B9F5D0]/25 text-[#182B26] shadow-sm ring-1 ring-[#16A36A]/30'
+                        : 'border-[#DCE6E0] bg-[#F7FAF8] text-[#718078] hover:border-[#16A36A]/40 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-lg bg-[#123D32] flex items-center justify-center text-[#B9F5D0] shrink-0">
+                        <Recycle className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="font-bold text-xs text-[#182B26]">Send to Recycler</div>
+                    </div>
+                    <div className="text-[11px] text-[#718078] leading-relaxed">
+                      Certified R2v3 e-waste recycling, material smelting & gold/copper recovery.
+                    </div>
+                    <div className="mt-2 text-[10px] font-mono font-semibold text-[#16A36A]">
+                      ✓ Dispatches directly to Recycler Queue
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDisposalPreference('repair')}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      disposalPreference === 'repair'
+                        ? 'border-[#123D32] bg-[#B9F5D0]/25 text-[#182B26] shadow-sm ring-1 ring-[#123D32]/25'
+                        : 'border-[#DCE6E0] bg-[#F7FAF8] text-[#718078] hover:border-[#123D32]/40 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-lg bg-[#16A36A] flex items-center justify-center text-white shrink-0">
+                        <Wrench className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="font-bold text-xs text-[#182B26]">Send to Repairer</div>
+                    </div>
+                    <div className="text-[11px] text-[#718078] leading-relaxed">
+                      Hardware diagnostic intake, component fix, battery renewal & refurbishment.
+                    </div>
+                    <div className="mt-2 text-[10px] font-mono font-semibold text-[#123D32]">
+                      ✓ Dispatches directly to Repairer Queue
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Real Device Photo Upload (Stored & Visible to Recycler & Admin) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[#182B26] font-semibold">
+                    Device Photo Verification (Shared with Recycler & Admin)
+                  </label>
+                  {deviceImageName && (
+                    <span className="text-[11px] font-mono text-[#16A36A] truncate max-w-[180px]">
+                      {deviceImageName}
+                    </span>
+                  )}
+                </div>
+
+                {deviceImage ? (
+                  <div className="p-3 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={deviceImage}
+                        alt="Uploaded device preview"
+                        referrerPolicy="no-referrer"
+                        className="w-16 h-16 rounded-lg object-cover border border-[#DCE6E0] bg-white shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-[#182B26] flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-[#16A36A]" />
+                          <span>Photo attached to request</span>
+                        </div>
+                        <div className="text-[11px] text-[#718078] truncate font-mono mt-0.5">
+                          {deviceImageName || 'device-photo.jpg'}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <label className="text-[11px] font-semibold text-[#16A36A] hover:underline cursor-pointer">
+                            Replace photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleClearPhoto}
+                            className="text-[11px] font-medium text-red-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <label className="flex flex-col items-center justify-center p-4 border border-dashed border-[#C7D7CE] hover:border-[#16A36A] rounded-xl bg-[#F7FAF8] hover:bg-white cursor-pointer transition-colors text-center">
+                      <Upload className="w-5 h-5 text-[#16A36A] mb-1.5" />
+                      <span className="text-[#182B26] font-medium text-xs">
+                        {isProcessingPhoto ? 'Optimizing image...' : 'Upload from Gallery'}
+                      </span>
+                      <span className="text-[10px] text-[#718078] mt-0.5">JPG, PNG, WEBP up to 10MB</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <label className="flex flex-col items-center justify-center p-4 border border-dashed border-[#C7D7CE] hover:border-[#123D32] rounded-xl bg-[#F7FAF8] hover:bg-white cursor-pointer transition-colors text-center">
+                      <Camera className="w-5 h-5 text-[#123D32] mb-1.5" />
+                      <span className="text-[#182B26] font-medium text-xs">
+                        Take Device Photo
+                      </span>
+                      <span className="text-[10px] text-[#718078] mt-0.5">Visible to Recycler & Admin</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (handleValidateStep1()) setStep(2);
+                  }}
+                  className="px-5 py-2.5 bg-[#16A36A] hover:bg-[#128757] text-white font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                >
+                  <span>Continue to Citizen Details</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
 
             </div>
           )}
 
-          {/* Step 2: Logistics & Date */}
+          {/* Step 2: Citizen Name, Details & Account Login */}
           {step === 2 && (
             <div className="space-y-4">
               
+              <div className="p-3.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl flex items-start gap-3">
+                <UserIcon className="w-5 h-5 text-[#16A36A] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-[#182B26] text-xs">
+                    Citizen Authentication & Contact Profile
+                  </h4>
+                  <p className="text-[#718078] text-[11px] leading-relaxed">
+                    Please provide your <strong className="text-[#182B26]">Name and Details</strong> and <strong className="text-[#182B26]">log in with your password</strong> so this pickup request and its Eco-Points are securely credited to your authenticated account.
+                  </p>
+                </div>
+              </div>
+
+              {alreadyAuthenticated ? (
+                <div className="p-3 bg-[#B9F5D0]/25 border border-[#16A36A]/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#16A36A]" />
+                    <div>
+                      <span className="font-semibold text-[#123D32]">Authenticated as {currentUser.name}</span>
+                      <span className="text-[#718078] text-[11px] block">{currentUser.email}</span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-semibold text-[#16A36A]">
+                    Logged In
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 p-1 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCitizenMode('register')}
+                    className={`flex-1 py-2 rounded-lg font-medium transition-colors cursor-pointer text-center ${
+                      citizenMode === 'register'
+                        ? 'bg-[#123D32] text-white font-semibold shadow-sm'
+                        : 'text-[#718078] hover:text-[#182B26]'
+                    }`}
+                  >
+                    New Citizen? Register & Submit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCitizenMode('login')}
+                    className={`flex-1 py-2 rounded-lg font-medium transition-colors cursor-pointer text-center ${
+                      citizenMode === 'login'
+                        ? 'bg-[#123D32] text-white font-semibold shadow-sm'
+                        : 'text-[#718078] hover:text-[#182B26]'
+                    }`}
+                  >
+                    Existing User? Log In with Password
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Your Full Name <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="e.g. Deekshitha Gowda"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white text-xs box-border"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Your Email Address <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    placeholder="e.g. citizen@gmail.com"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white font-mono text-xs box-border"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Contact Phone Number <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
+                    placeholder="e.g. +1 (555) 789-0123"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white font-mono text-xs box-border"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>
+                      {alreadyAuthenticated ? 'Account Password (Optional)' : 'Account Password ' + (citizenMode === 'register' ? '(Create Password)' : '(Enter Password)')} <span className="text-red-500">*</span>
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required={!alreadyAuthenticated}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={alreadyAuthenticated ? '••••••••' : (citizenMode === 'register' ? 'Create a secure password' : 'Enter your password')}
+                      className="w-full pl-3 pr-9 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white font-mono text-xs box-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#718078] hover:text-[#182B26] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-neutral-300 font-semibold mb-1.5">
-                  Collection Mode
+                <label className="block text-[#182B26] font-semibold mb-1.5">
+                  Collection Method <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setPickupType('home_pickup')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       pickupType === 'home_pickup'
-                        ? 'border-emerald-500 bg-emerald-950/30 text-emerald-300'
-                        : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700'
+                        ? 'border-[#16A36A] bg-[#B9F5D0]/25 text-[#123D32]'
+                        : 'border-[#DCE6E0] bg-[#F7FAF8] text-[#718078] hover:border-[#16A36A]/40'
                     }`}
                   >
-                    <div className="font-semibold">Free Doorstep Pickup</div>
-                    <div className="text-[11px] text-neutral-500 mt-0.5">Clustered low-emission truck collection</div>
+                    <div className="font-semibold text-[#182B26]">Free Doorstep Pickup</div>
+                    <div className="text-[11px] text-[#718078] mt-0.5">Logistics team collects directly from your address</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPickupType('centre_dropoff')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       pickupType === 'centre_dropoff'
-                        ? 'border-emerald-500 bg-emerald-950/30 text-emerald-300'
-                        : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700'
+                        ? 'border-[#16A36A] bg-[#B9F5D0]/25 text-[#123D32]'
+                        : 'border-[#DCE6E0] bg-[#F7FAF8] text-[#718078] hover:border-[#16A36A]/40'
                     }`}
                   >
-                    <div className="font-semibold">Campus Drop-off Kiosk</div>
-                    <div className="text-[11px] text-neutral-500 mt-0.5">Deposit at solar eco-hub anytime</div>
+                    <div className="font-semibold text-[#182B26]">Campus Drop-off Kiosk</div>
+                    <div className="text-[11px] text-[#718078] mt-0.5">Self-deposit at verified collection centre</div>
                   </button>
                 </div>
               </div>
 
               {pickupType === 'home_pickup' ? (
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Doorstep Address & Room <span className="text-red-400">*</span>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Your Doorstep Address & Room / Flat <span className="text-red-500">*</span></span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Room 304, Redwood Student Residence, North Campus"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    placeholder="e.g. Flat 402, Oakwood Apartments, 12th Cross, Indiranagar"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] placeholder-[#718078] focus:outline-none focus:border-[#16A36A] focus:bg-white text-xs box-border"
                   />
                 </div>
               ) : (
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Select Collection Centre / Kiosk <span className="text-red-400">*</span>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Select Collection Centre / Depot <span className="text-red-500">*</span></span>
                   </label>
                   <select
                     value={centreId}
                     onChange={(e) => setCentreId(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white"
                   >
                     {centres.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -427,27 +892,30 @@ export const PickupRequestModal: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Preferred Collection Date <span className="text-red-400">*</span>
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Preferred Pickup Date <span className="text-red-500">*</span></span>
                   </label>
                   <input
                     type="date"
+                    required
                     value={preferredDate}
                     onChange={(e) => setPreferredDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500 font-mono"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white font-mono text-xs box-border"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-neutral-300 font-semibold mb-1.5">
-                    Time Window
+                  <label className="block text-[#182B26] font-semibold mb-1 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#718078]" />
+                    <span>Time Window Slot</span>
                   </label>
                   <select
                     value={timeSlot}
                     onChange={(e) => setTimeSlot(e.target.value)}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2.5 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white"
                   >
                     <option value="09:00 AM - 12:00 PM">09:00 AM - 12:00 PM (Morning Slot)</option>
                     <option value="12:00 PM - 03:00 PM">12:00 PM - 03:00 PM (Afternoon Slot)</option>
@@ -456,30 +924,24 @@ export const PickupRequestModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-neutral-300 font-semibold mb-1.5">
-                  Device Serial Number or IMEI (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={serialNumber}
-                  onChange={(e) => setSerialNumber(e.target.value)}
-                  placeholder="e.g. SN-8921-X992 (Helps generate R2 certificate)"
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-neutral-300 font-semibold mb-1.5">
-                  Special Instructions or Access Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. Leave with dorm security desk if after 5 PM; power adapter included in box."
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none focus:border-emerald-500"
-                />
+              <div className="pt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="px-4 py-2 bg-[#F7FAF8] hover:bg-[#EDF3EF] border border-[#DCE6E0] text-[#182B26] rounded-xl cursor-pointer transition-colors"
+                >
+                  ← Back to Specs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (handleValidateStep2()) setStep(3);
+                  }}
+                  className="px-5 py-2.5 bg-[#16A36A] hover:bg-[#128757] text-white font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                >
+                  <span>Continue to Review</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
 
             </div>
@@ -489,109 +951,164 @@ export const PickupRequestModal: React.FC<Props> = ({
           {step === 3 && (
             <div className="space-y-4">
               
-              <div className="p-4 bg-neutral-950 border border-neutral-800 rounded-xl space-y-3">
-                <div className="text-xs font-semibold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Mandatory Pre-Disposal Acknowledgements</span>
+              {/* Order & Identity Summary Box */}
+              <div className="p-4 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl space-y-2 text-xs">
+                <div className="font-bold text-[#123D32] text-[11px] uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Recycle Request Summary</span>
+                  <span className="font-mono text-[#718078] font-normal tabular-nums">
+                    {formatRequestDateTime(new Date().toISOString())}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Citizen:</span>
+                  <span className="text-[#182B26] font-bold">{userName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Email:</span>
+                  <span className="text-[#182B26] font-mono">{userEmail}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Phone:</span>
+                  <span className="text-[#182B26] font-mono">{userPhone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Device:</span>
+                  <span className="text-[#123D32] font-bold">{quantity}x {brand} {model}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Category:</span>
+                  <span className="text-[#182B26]">{deviceCategory}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Service Destination:</span>
+                  <span className={`font-bold ${disposalPreference === 'recycle' ? 'text-[#16A36A]' : 'text-[#123D32]'}`}>
+                    {disposalPreference === 'recycle' ? 'Certified Recycler' : 'Hardware Repairer'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Pickup Address:</span>
+                  <span className="text-[#182B26] text-right max-w-xs truncate">{address}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#718078]">Schedule:</span>
+                  <span className="text-[#182B26] font-mono tabular-nums">{preferredDate} ({timeSlot})</span>
                 </div>
 
-                {/* Privacy checkbox */}
-                <label className="flex items-start gap-3 text-xs text-neutral-300 cursor-pointer pt-2 border-t border-neutral-800">
+                {deviceImage && (
+                  <div className="pt-2 mt-2 border-t border-[#DCE6E0] flex items-center justify-between gap-3">
+                    <span className="text-[#718078]">Attached Device Photo:</span>
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={deviceImage}
+                        alt="Attached device"
+                        referrerPolicy="no-referrer"
+                        className="w-10 h-10 rounded-lg object-cover border border-[#DCE6E0]"
+                      />
+                      <span className="font-mono text-[11px] text-[#16A36A] max-w-[140px] truncate">
+                        {deviceImageName || 'Attached'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Special Notes or Serial Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#182B26] font-semibold mb-1">
+                    Device Serial / IMEI (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={serialNumber}
+                    onChange={(e) => setSerialNumber(e.target.value)}
+                    placeholder="e.g. SN-8921-X992"
+                    className="w-full px-3 py-2 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#182B26] font-semibold mb-1">
+                    Pickup Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="e.g. Ring bell or call on arrival"
+                    className="w-full px-3 py-2 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl text-[#182B26] focus:outline-none focus:border-[#16A36A] focus:bg-white text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Safety & Compliance acknowledgements */}
+              <div className="p-4 bg-[#F7FAF8] border border-[#DCE6E0] rounded-xl space-y-3">
+                <div className="text-xs font-semibold text-[#123D32] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#16A36A]" />
+                  <span>Mandatory Handover Acknowledgements</span>
+                </div>
+
+                <label className="flex items-start gap-3 text-xs text-[#718078] cursor-pointer pt-2 border-t border-[#DCE6E0]">
                   <input
                     type="checkbox"
                     checked={privacyCheck}
                     onChange={(e) => setPrivacyCheck(e.target.checked)}
-                    className="mt-0.5 rounded border-neutral-700 bg-neutral-900 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                    className="mt-0.5 rounded border-[#C7D7CE] text-[#16A36A] focus:ring-[#16A36A] h-4 w-4 accent-[#16A36A]"
                   />
                   <span>
-                    <strong className="text-white">Data Privacy Sign-Out Acknowledgement:</strong> I have signed out of Apple ID / Google / Microsoft accounts, removed SIM/SD cards, or acknowledge that physical drives will undergo certified DoD 5220.22-M magnetic degaussing.
+                    <strong className="text-[#182B26]">Data Privacy Sign-Out:</strong> I have removed cloud locks, SIM/SD cards, or acknowledge that storage media will undergo certified sanitization.
                   </span>
                 </label>
 
-                {/* Battery checkbox */}
-                <label className="flex items-start gap-3 text-xs text-neutral-300 cursor-pointer pt-2 border-t border-neutral-800">
+                <label className="flex items-start gap-3 text-xs text-[#718078] cursor-pointer pt-2 border-t border-[#DCE6E0]">
                   <input
                     type="checkbox"
                     checked={batteryCheck}
                     onChange={(e) => setBatteryCheck(e.target.checked)}
-                    className="mt-0.5 rounded border-neutral-700 bg-neutral-900 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                    className="mt-0.5 rounded border-[#C7D7CE] text-[#16A36A] focus:ring-[#16A36A] h-4 w-4 accent-[#16A36A]"
                   />
                   <span>
-                    <strong className="text-white">Battery Safety Guideline:</strong> I confirm this device will not be placed in ordinary household trash or municipal compactors. Any swollen lithium batteries have their terminals taped with non-conductive electrical tape.
+                    <strong className="text-[#182B26]">Battery Safety Guideline:</strong> I confirm this device will not be placed in ordinary household trash. Swollen battery terminals have been insulated.
                   </span>
                 </label>
               </div>
 
-              {/* Summary card */}
-              <div className="p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl space-y-2 text-xs font-mono">
-                <div className="flex justify-between text-neutral-300">
-                  <span>Unit:</span>
-                  <span className="text-white font-bold">{quantity}x {brand} {model}</span>
-                </div>
-                <div className="flex justify-between text-neutral-300">
-                  <span>Pathway:</span>
-                  <span className="text-emerald-400 capitalize">{disposalPreference}</span>
-                </div>
-                <div className="flex justify-between text-neutral-300">
-                  <span>Estimated Eco-Points:</span>
-                  <span className="text-emerald-400 font-bold">+{deviceCategory === 'Laptops' ? 200 : 120} pts</span>
-                </div>
-                <div className="flex justify-between text-neutral-300">
-                  <span>Chain of Custody:</span>
-                  <span className="text-neutral-400">7-Stage Real-Time Telemetry</span>
+              {/* Form Navigation and Submit */}
+              <div className="pt-2 flex items-center justify-between gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="px-4 py-2.5 bg-[#F7FAF8] hover:bg-[#EDF3EF] border border-[#DCE6E0] text-[#182B26] rounded-xl text-xs cursor-pointer transition-colors"
+                >
+                  ← Edit Details
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2.5 bg-[#F7FAF8] hover:bg-[#EDF3EF] border border-[#DCE6E0] text-[#718078] hover:text-[#182B26] rounded-xl text-xs cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-[#16A36A] hover:bg-[#128757] disabled:opacity-50 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer transition-colors"
+                  >
+                    {isSubmitting ? (
+                      <span>Authenticating & Submitting...</span>
+                    ) : (
+                      <>
+                        <Recycle className="w-4 h-4" />
+                        <span>Confirm & Submit Recycle Request</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
             </div>
           )}
-
-          {/* Dialog Action Footer */}
-          <div className="pt-4 border-t border-neutral-800 flex items-center justify-between">
-            {step > 1 ? (
-              <button
-                type="button"
-                onClick={() => setStep(step - 1)}
-                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium rounded-xl text-xs"
-              >
-                Back
-              </button>
-            ) : (
-              <div />
-            )}
-
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (step === 1 && (!brand.trim() || !model.trim())) {
-                    setErrorMsg('Please specify brand and model to continue.');
-                    return;
-                  }
-                  setErrorMsg('');
-                  setStep(step + 1);
-                }}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
-              >
-                <span>Continue</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-950/40"
-              >
-                {isSubmitting ? (
-                  <span>Generating Tracking ID...</span>
-                ) : (
-                  <>
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Confirm & Schedule</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
 
         </form>
 

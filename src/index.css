@@ -5,31 +5,115 @@
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --color-forest: #123D32;
+  --color-emerald-brand: #16A36A;
+  --color-mint-brand: #B9F5D0;
+  --color-canvas: #F7FAF8;
+  --color-charcoal: #182B26;
+  --color-muted-grey: #718078;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #090d0b;
-  color: #f3f4f6;
+  background-color: #F7FAF8;
+  color: #182B26;
   overflow-x: hidden;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Elevated Apple/Linear/Stripe environmental surface tokens */
+.eco-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E1EBE5;
+  box-shadow: 0 1px 2px rgba(18, 61, 50, 0.04), 0 8px 24px -12px rgba(18, 61, 50, 0.08);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 200ms ease;
+}
+
+.eco-card-interactive:hover {
+  transform: translateY(-2px);
+  border-color: #C4DDD0;
+  box-shadow: 0 4px 10px rgba(18, 61, 50, 0.06), 0 16px 32px -14px rgba(18, 61, 50, 0.14);
+}
+
+/* Scroll-triggered reveal animations (compositor-only) */
+.eco-reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition: opacity 520ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.eco-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-modal-in {
+  animation: modalSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Subtle environmental mesh backdrop helper */
+.eco-mesh-bg {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(185, 245, 208, 0.45) 0%, transparent 45%),
+    radial-gradient(circle at 88% 12%, rgba(22, 163, 106, 0.08) 0%, transparent 42%);
 }
 
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d0b;
+  background: #F1F6F3;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e2e25;
-  border-radius: 3px;
+  background: #C4D4CB;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #284435;
+  background: #16A36A;
+}
+
+/* Respect reduced motion accessibility preference */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .eco-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .eco-card-interactive:hover {
+    transform: none !important;
+  }
+  .animate-modal-in {
+    animation: none !important;
+  }
 }
